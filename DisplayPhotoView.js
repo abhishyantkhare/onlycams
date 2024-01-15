@@ -144,11 +144,9 @@ const styles = StyleSheet.create({
   },
   smallImage: {
     flex: 1,
-    borderWidth: "2px",
-    borderRadius: "25px",
+    borderWidth: 2,
+    borderRadius: 25,
     borderColor: "black",
-    borderWidth: "2px",
-    borderRadius: "25px",
   },
   buttonContainer: {
     flex: 1,

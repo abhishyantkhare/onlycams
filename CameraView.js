@@ -5,6 +5,49 @@ import { trackEvent } from "@aptabase/react-native";
 import { EvilIcons } from "@expo/vector-icons";
 
 
+function FirstCameraView(props) {
+  return (
+    <Camera
+      style={styles.camera}
+      type={props.type}
+      ref={props.cameraRef}
+      onCameraReady={() => props.setCameraReady(true)}
+    >
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={styles.lensButton}
+          onPress={async () => { await props.takePhoto() }}
+        />
+        <EvilIcons
+          name="refresh"
+          size={80}
+          color="white"
+          style={styles.switchCameraIcon}
+          onPress={props.toggleCameraType}
+        />
+      </View>
+    </Camera>
+  );
+}
+
+
+function SecondCameraView(props) {
+  return (
+    <Camera
+      style={styles.camera}
+      type={props.type}
+      ref={props.cameraRef}
+    >
+      <ImageBackground
+        source={{ uri: props.backCameraImageUri }}
+        style={styles.container}
+      >
+        <ActivityIndicator size="large" color="#ffffff" style={styles.loadingIndicator} />
+      </ImageBackground>
+    </Camera>
+  );
+}
+
 
 export default function CameraView(props) {
   const [type, setType] = useState(CameraType.back);
@@ -12,7 +55,8 @@ export default function CameraView(props) {
   const [tookBackPhoto, setTookBackPhoto] = useState(false);
   const [backCameraImageUri, setBackCameraImageUri] = useState("");
   const [cameraReady, setCameraReady] = useState(false);
-  const cameraRef = useRef(null);
+  const firstCameraRef = useRef(null);
+  const secondCameraRef = useRef(null);
   const [takePhotoCount, setTakePhotoCount] = useState(0);
 
   function toggleCameraType() {
@@ -40,19 +84,18 @@ export default function CameraView(props) {
     if (!cameraReady) {
       return;
     }
-    if (!cameraRef) {
+    if (!firstCameraRef.current) {
       return;
     }
     setTakePhotoCount(takePhotoCount + 1);
     trackEvent("increment", { takePhotoCount });
 
-    await cameraRef.current.takePictureAsync({
-      onPictureSaved: (photo) => onPictureSaved(photo, true),
-    });
-    toggleCameraType();
+    const photo = await firstCameraRef.current.takePictureAsync();
+    onPictureSaved(photo, true);
+
     setTimeout(
       async () => {
-        await cameraRef.current.takePictureAsync({
+        await secondCameraRef.current.takePictureAsync({
           onPictureSaved: (photo) => onPictureSaved(photo, false),
         })
       }, 1000
@@ -67,27 +110,20 @@ export default function CameraView(props) {
   return (
     <View style={styles.container}>
       {cameraPermission && cameraPermission.granted ?
-
-        <Camera
-          style={styles.camera}
-          type={type}
-          ref={cameraRef}
-          onCameraReady={() => setCameraReady(true)}
-        >{
-            tookBackPhoto ?
-              <ImageBackground
-                source={{ uri: backCameraImageUri }}
-                style={styles.container}
-              >
-                <ActivityIndicator size="large" color="#ffffff" style={styles.loadingIndicator} />
-              </ImageBackground>
-              :
-              <View style={styles.buttonContainer}>
-                <TouchableOpacity style={styles.lensButton} onPress={async () => { await takePhoto() }} />
-                <EvilIcons name="refresh" size={80} color="white" style={styles.switchCameraIcon} onPress={toggleCameraType} />
-              </View>
-          }
-        </Camera>
+          (tookBackPhoto ?
+            <SecondCameraView
+              type={type === CameraType.back ? CameraType.front : CameraType.back}
+              cameraRef={secondCameraRef}
+              backCameraImageUri={backCameraImageUri}
+            />
+            : <FirstCameraView
+              type={type}
+              cameraRef={firstCameraRef}
+              setCameraReady={setCameraReady}
+              takePhoto={takePhoto}
+              toggleCameraType={toggleCameraType}
+            />
+          )
         : <View style={styles.askPermissionButton}>
           <Text>
             Camera permission not granted, click here to grant permission
@@ -137,7 +173,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   lensButton: {
-    borderRadius: "50%", /* Make it circular */
+    borderRadius: 40, /* Make it circular */
     borderColor: "white",
     borderWidth: 2,
     width: 80, /* Set the width of the button */
